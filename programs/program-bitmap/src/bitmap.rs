@@ -34,7 +34,7 @@ impl Bitmap for Vec<u8> {
         if value {
             self[vec_index as usize] |= 1 << bit_index;
         } else {
-            self[vec_index as usize] &= !(2u8.pow(bit_index));
+            self[vec_index as usize] &= !(1 << bit_index);
         }
     }
 

@@ -9,4 +9,4 @@ cluster = "localnet"
 wallet = "/home/sssroot/.config/solana/id.json"
 
 [scripts]
-test = "mocha -t 1000000 tests/"
+test = "yarn anchor:test"

@@ -10,11 +10,11 @@ pub mod program_bitmap {
     use crate::bitmap::Bitmap;
 
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let len: usize = ctx.accounts.ob.to_account_info().data_len();
         let ob = &mut ctx.accounts.ob;
         ob.owner = *ctx.accounts.owner.to_account_info().key;
-        ob.bitmap = Vec::<u8>::bm_with_capacity((len - 8 - 32) * 8); //exclude sig hash and owner space
+        ob.bitmap = Vec::<u8>::bm_with_capacity((len - 44) * 8); //exclude sig hash and owner space
         Ok(())
     }
 
@@ -33,10 +33,10 @@ pub mod program_bitmap {
         let ob = &mut ctx.accounts.ob;
         for iv in ivs {
             ob.check_index(iv.index)?;
-            if ob.bitmap.bm_get(iv.index) != iv.value {
+            if ob.bitmap.bm_get(iv.index) != !iv.value {
                 return Err(ErrorCode::ValueNotMatch.into());
             }
-            ob.bitmap.bm_set(iv.index, !iv.value);
+            ob.bitmap.bm_set(iv.index, iv.value);
         }
         Ok(())
     }
@@ -86,7 +86,7 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct Admin<'info> {
-    #[account(has_one = owner)]
+    #[account(mut, has_one = owner)]
     pub ob: Account<'info, OwnedBitmap>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
@@ -94,7 +94,7 @@ pub struct Admin<'info> {
 
 #[derive(Accounts)]
 pub struct SetOwner<'info> {
-    #[account(has_one = owner)]
+    #[account(mut, has_one = owner)]
     pub ob: Account<'info, OwnedBitmap>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
@@ -120,7 +120,7 @@ impl OwnedBitmap {
 #[error]
 pub enum ErrorCode {
     #[msg("value not match")]
-    ValueNotMatch,
+    ValueNotMatch, //300 0x12c
     #[msg("index overflow")]
-    IndexOverflow,
+    IndexOverflow, //301 0x12d
 }
