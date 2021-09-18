@@ -1,0 +1,21 @@
+[package]
+name = "program-bitmap"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "program_bitmap"
+
+#for `cargo test`: error[E0659]: `parrot` is ambiguous (name vs any other name during import resolution)
+doctest = false
+
+[features]
+no-entrypoint = []
+no-idl = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.16.0"
