@@ -1,4 +1,70 @@
-//init
+//create bitmap
 //reset
 //inspect
 //set_owner
+
+import {
+  Program,
+  Provider,
+  setProvider,
+  web3,
+  workspace,
+} from "@project-serum/anchor";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import { initOwnedBitmap, inspect, reset, setOwner } from "./commands";
+
+setProvider(Provider.local(process.env.RPC_URL));
+const program: Program = workspace.ProgramBitmap;
+
+yargs(hideBin(process.argv))
+  .command(
+    "init <capacity>",
+    "init a owned bitmap with capacity",
+    (y) => {
+      y.positional("capacity", { desc: "capacity of bitmap", type: "number" });
+    },
+    async (args: { capacity: number }) => {
+      await initOwnedBitmap(program, args.capacity);
+    }
+  )
+  .command(
+    "inspect <account>",
+    "inspect owned bitmap account",
+    (y) => {
+      y.positional("account", { desc: "owned bitmap account", type: "string" });
+    },
+    async (args: { account: string }) => {
+      await inspect(program, new web3.PublicKey(args.account));
+    }
+  )
+  .command(
+    "reset <account>",
+    "reset owned bitmap account",
+    (y) => {
+      y.positional("account", { desc: "owned bitmap account", type: "string" });
+    },
+    async (args: { account: string }) => {
+      await reset(program, new web3.PublicKey(args.account));
+    }
+  )
+  .command(
+    "inspect <account> <new_owner>",
+    "inspect owned bitmap account",
+    (y) => {
+      y.positional("account", {
+        desc: "owned bitmap account",
+        type: "string",
+      }).positional("new_owner", {
+        desc: "owned bitmap account",
+        type: "string",
+      });
+    },
+    async (args: { account: string; new_owner: string }) => {
+      await setOwner(
+        program,
+        new web3.PublicKey(args.account),
+        new web3.PublicKey(args.new_owner)
+      );
+    }
+  ).argv;
