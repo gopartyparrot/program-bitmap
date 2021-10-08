@@ -1,17 +1,27 @@
 ## usage
 
+if you need to test program on devnet replace `metadata->address` in `app/idl.json` to devnet program id
+
 ```bash
-# init
-ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com ts-node app/cli.ts init 240
+export ANCHOR_WALLET=~/.config/solana/id.json
+#export RPC_URL=https://api.devnet.solana.com
+export RPC_URL=https://api.mainnet-beta.solana.com
+
+# init with capacity(8x, eg: 48 800 16000)
+# or: ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com ts-node app/cli.ts init 48
+ts-node app/cli.ts init 48
+
+#set env bitmap address
+export BITMAP=$yourBitmapAddress
 
 # inspect
-ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com ts-node app/cli.ts inspect $BITMAP
+ts-node app/cli.ts inspect $BITMAP
 
 # set
-ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com px ts-node app/cli.ts set $BITMAP $INDEX
+px ts-node app/cli.ts set $BITMAP $INDEX
 
 # close
-ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com ts-node app/cli.ts close $BITMAP
+ts-node app/cli.ts close $BITMAP
 ```
 
 ## program id
@@ -25,3 +35,5 @@ ANCHOR_WALLET=~/.config/solana/id.json RPC_URL=https://api.devnet.solana.com ts-
 ### mainnet
 
 - `BMP23Y1u4FdGSwknSH7PVswT9ru7f9YsyjqR18pHGmBJ`
+- 2021-10-08T20:20:46+08:00
+- commit `809e74fa8f74c32039e78045e6e59435400cb0f3`
