@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+#[cfg(not(feature = "production"))]
+declare_id!("EGouPpM75ScRYBos5nYoafDDYVqMJptYQf5oqEoYZ7Xz"); //devnet/localnet
+
+#[cfg(feature = "production")]
+declare_id!("BMP23Y1u4FdGSwknSH7PVswT9ru7f9YsyjqR18pHGmBJ"); //mainnet
 
 #[program]
 pub mod program_bitmap {

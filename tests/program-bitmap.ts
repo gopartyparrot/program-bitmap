@@ -1,4 +1,5 @@
 import {
+  BN,
   Program,
   Provider,
   setProvider,
@@ -8,6 +9,10 @@ import { Keypair } from "@solana/web3.js";
 
 import assert from "assert";
 import { BitmapReader } from "../lib/BitmapReader";
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const provider = Provider.env();
 setProvider(provider);
@@ -22,14 +27,20 @@ describe("program-bitmap", () => {
     },
   };
 
+  const accountSize = 60;
+  const bitmapCapacity = (60 - 44) * 8;
+
   it("Is initialized!", async () => {
-    const txid = await program.rpc.initialize({
+    const txid = await program.rpc.initialize(new BN(bitmapCapacity), {
       accounts: {
         ob: oBitmap.publicKey,
         owner: provider.wallet.publicKey,
       },
       instructions: [
-        await program.account.ownedBitmap.createInstruction(oBitmap, 60),
+        await program.account.ownedBitmap.createInstruction(
+          oBitmap,
+          accountSize
+        ),
       ],
       signers: [oBitmap],
     });
@@ -40,92 +51,41 @@ describe("program-bitmap", () => {
     assert.equal(reader.count(true), 0, "all should be false");
   });
 
-  it("it must swap should fail", async () => {
+  it("it should set success", async () => {
+    await program.rpc.set(new BN(1), {
+      ...adminAccounts,
+    });
+    const state = await program.account.ownedBitmap.fetch(oBitmap.publicKey);
+    const reader = BitmapReader.from(state["bitmap"]);
+    assert.equal(reader.read(1), true, "index 1 should be true");
+    assert.equal(reader.count(true), 1, "should has 1 true");
+  });
+
+  it("it should set should fail when already set", async () => {
     await assert.rejects(async () => {
-      await program.rpc.mustSwap({ index: 0, value: false }, adminAccounts);
+      await sleep(1 * 1000);
+      await program.rpc.set(new BN(1), adminAccounts);
     }, "should failed");
-  });
-
-  it("it must swap", async () => {
-    await program.rpc.mustSwap(
-      { index: 1, value: true },
-      {
-        ...adminAccounts,
-        instructions: [await program.instruction.reset(adminAccounts)],
-      }
-    );
-    const state = await program.account.ownedBitmap.fetch(oBitmap.publicKey);
-    const reader = BitmapReader.from(state["bitmap"]);
-    assert.equal(reader.read(1), true, "index 1 should be true");
-    assert.equal(reader.count(true), 1, "should has 1 true");
-  });
-  it("it must swap batch", async () => {
-    await program.rpc.mustSwapBatch(
-      [
-        { index: 1, value: true },
-        { index: 3, value: true },
-      ],
-      {
-        ...adminAccounts,
-        instructions: [await program.instruction.reset(adminAccounts)],
-      }
-    );
-    const state = await program.account.ownedBitmap.fetch(oBitmap.publicKey);
-    const reader = BitmapReader.from(state["bitmap"]);
-    assert.equal(reader.read(1), true, "index 1 should be true");
-    assert.equal(reader.read(3), true, "index 3 should be true");
-    assert.equal(reader.count(true), 2, "should has 2 true");
-  });
-
-  it("it set success", async () => {
-    await program.rpc.set(
-      { index: 4, value: true },
-      {
-        ...adminAccounts,
-        instructions: [await program.instruction.reset(adminAccounts)],
-      }
-    );
-    const state = await program.account.ownedBitmap.fetch(oBitmap.publicKey);
-    const reader = BitmapReader.from(state["bitmap"]);
-    assert.equal(reader.read(4), true, "index 4 should be true");
-    assert.equal(reader.count(true), 1, "should has 1 true");
-  });
-
-  it("it set batch success", async () => {
-    await program.rpc.setBatch(
-      [
-        { index: 2, value: false },
-        { index: 5, value: true },
-        { index: 7, value: true },
-        { index: 8, value: true },
-      ],
-      {
-        ...adminAccounts,
-        instructions: [await program.instruction.reset(adminAccounts)],
-      }
-    );
-    const state = await program.account.ownedBitmap.fetch(oBitmap.publicKey);
-    const reader = BitmapReader.from(state["bitmap"]);
-    assert.equal(reader.read(5), true, "index 5 should be true");
-    assert.equal(reader.read(7), true, "index 7 should be true");
-    assert.equal(reader.read(8), true, "index 8 should be true");
-    assert.equal(reader.count(true), 3, "should has 3 true");
   });
 
   it("it index overflow", async () => {
     await assert.rejects(async () => {
-      await program.rpc.set({ index: 999999, value: true }, adminAccounts);
+      await program.rpc.set(999999, adminAccounts);
     }, "should failed for index out of bound/overflow");
   });
 
-  it("set owner", async () => {
-    const newOwner = Keypair.generate();
-    await program.rpc.setOwner({
-      accounts: { ...adminAccounts.accounts, newOwner: newOwner.publicKey },
+  it("close bitmap", async () => {
+    let bal = await provider.connection.getBalance(oBitmap.publicKey);
+    assert(bal > 0);
+    await program.rpc.close({
+      accounts: {
+        ob: oBitmap.publicKey,
+        owner: provider.wallet.publicKey,
+        solDest: provider.wallet.publicKey,
+      },
     });
-    const state: any = await program.account.ownedBitmap.fetch(
-      oBitmap.publicKey
-    );
-    assert.equal(state.owner.toBase58(), newOwner.publicKey.toBase58());
+
+    bal = await provider.connection.getBalance(oBitmap.publicKey);
+    assert.strictEqual(bal, 0, "lamports should be removed");
   });
 });

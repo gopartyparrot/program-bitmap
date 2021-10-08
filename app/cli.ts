@@ -1,8 +1,3 @@
-//create bitmap
-//reset
-//inspect
-//set_owner
-
 import {
   Program,
   Provider,
@@ -12,16 +7,16 @@ import {
 } from "@project-serum/anchor";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import {
-  initOwnedBitmap,
-  inspect,
-  mustSwap,
-  reset,
-  setOwner,
-} from "./commands";
+import { initOwnedBitmap, inspect, setIndex, close } from "./commands";
 
-setProvider(Provider.local(process.env.RPC_URL));
-const program: Program = workspace.ProgramBitmap;
+import idl from "./idl.json";
+
+const PROGRAM_ID = new web3.PublicKey(idl.metadata.address);
+
+function getProgram(): Program {
+  const provider = Provider.local(process.env.RPC_URL);
+  return new Program(idl as any, PROGRAM_ID, provider);
+}
 
 yargs(hideBin(process.argv))
   .command(
@@ -31,7 +26,7 @@ yargs(hideBin(process.argv))
       y.positional("capacity", { desc: "capacity of bitmap", type: "number" });
     },
     async (args: { capacity: number }) => {
-      await initOwnedBitmap(program, args.capacity);
+      await initOwnedBitmap(getProgram(), args.capacity);
     }
   )
   .command(
@@ -41,63 +36,37 @@ yargs(hideBin(process.argv))
       y.positional("account", { desc: "owned bitmap account", type: "string" });
     },
     async (args: { account: string }) => {
-      await inspect(program, new web3.PublicKey(args.account));
+      await inspect(getProgram(), new web3.PublicKey(args.account));
     }
   )
   .command(
-    "reset <account>",
-    "reset owned bitmap account",
+    "close <account>",
+    "close owned bitmap account",
     (y) => {
       y.positional("account", { desc: "owned bitmap account", type: "string" });
     },
     async (args: { account: string }) => {
-      await reset(program, new web3.PublicKey(args.account));
+      await close(getProgram(), new web3.PublicKey(args.account));
     }
   )
   .command(
-    "swap <account> <index> <value>",
-    "must swap value of $index to $value when it's current value is !$value",
+    "set <account> <index>",
+    "set value of index to true ",
     (y) => {
       y.positional("account", {
         desc: "owned bitmap account",
         type: "string",
-      })
-        .positional("index", {
-          desc: "index",
-          type: "number",
-          default: 0,
-        })
-        .positional("value", {
-          desc: "new value",
-          type: "boolean",
-        });
-    },
-    async (args: { account: string; index: number; value: boolean }) => {
-      await mustSwap(
-        program,
-        new web3.PublicKey(args.account),
-        args.index,
-        args.value
-      );
-    }
-  )
-  .command(
-    "inspect <account> <new_owner>",
-    "inspect owned bitmap account",
-    (y) => {
-      y.positional("account", {
-        desc: "owned bitmap account",
-        type: "string",
-      }).positional("new_owner", {
-        desc: "owned bitmap account",
-        type: "string",
+      }).positional("index", {
+        desc: "index",
+        type: "number",
+        default: 0,
       });
     },
-    async (args: { account: string; new_owner: string }) => {
-      await setOwner(
-        program,
+    async (args: { account: string; index: number }) => {
+      await setIndex(
+        getProgram(),
         new web3.PublicKey(args.account),
-        new web3.PublicKey(args.new_owner)
+        args.index
       );
     }
   ).argv;

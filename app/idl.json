@@ -1,0 +1,102 @@
+{
+  "version": "0.0.0",
+  "name": "program_bitmap",
+  "instructions": [
+    {
+      "name": "initialize",
+      "accounts": [
+        {
+          "name": "ob",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "len",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "set",
+      "accounts": [
+        {
+          "name": "ob",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "close",
+      "accounts": [
+        {
+          "name": "ob",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "solDest",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "OwnedBitmap",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "bitmap",
+            "type": "bytes"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 300,
+      "name": "AlreadySet",
+      "msg": "value in index already set"
+    },
+    {
+      "code": 301,
+      "name": "IndexOverflow",
+      "msg": "index overflow"
+    }
+  ],
+  "metadata": {
+    "address": "EGouPpM75ScRYBos5nYoafDDYVqMJptYQf5oqEoYZ7Xz"
+  }
+}
