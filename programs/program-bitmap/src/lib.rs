@@ -1,79 +1,25 @@
 use anchor_lang::prelude::*;
-use bitmap::Bitmap;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-mod bitmap;
-
 #[program]
 pub mod program_bitmap {
-    use crate::bitmap::Bitmap;
-
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        let len: usize = ctx.accounts.ob.to_account_info().data_len();
+    pub fn initialize(ctx: Context<Initialize>, len: u32) -> Result<()> {
         let ob = &mut ctx.accounts.ob;
         ob.owner = *ctx.accounts.owner.to_account_info().key;
-        ob.bitmap = Vec::<u8>::bm_with_capacity((len - 44) * 8); //exclude sig hash and owner space
+        ob.bitmap = vec![0u8; len as usize / 8];
         Ok(())
     }
 
-    // current value in $index must be !$value then set new value to $value
-    pub fn must_swap(ctx: Context<Admin>, iv: IndexValue) -> Result<()> {
+    pub fn set(ctx: Context<Admin>, index: u32) -> Result<()> {
         let ob = &mut ctx.accounts.ob;
-        ob.check_index(iv.index)?;
-        if ob.bitmap.bm_get(iv.index) != !iv.value {
-            return Err(ErrorCode::ValueNotMatch.into());
-        }
-        ob.bitmap.bm_set(iv.index, iv.value);
-        Ok(())
+        ob.set(index)
     }
 
-    pub fn must_swap_batch(ctx: Context<Admin>, ivs: Vec<IndexValue>) -> Result<()> {
-        let ob = &mut ctx.accounts.ob;
-        for iv in ivs {
-            ob.check_index(iv.index)?;
-            if ob.bitmap.bm_get(iv.index) != !iv.value {
-                return Err(ErrorCode::ValueNotMatch.into());
-            }
-            ob.bitmap.bm_set(iv.index, iv.value);
-        }
+    pub fn close(_ctx: Context<Close>) -> Result<()> {
         Ok(())
     }
-
-    pub fn set(ctx: Context<Admin>, iv: IndexValue) -> Result<()> {
-        let ob = &mut ctx.accounts.ob;
-        ob.check_index(iv.index)?;
-        ob.bitmap.bm_set(iv.index, iv.value);
-        Ok(())
-    }
-
-    pub fn set_batch(ctx: Context<Admin>, ivs: Vec<IndexValue>) -> Result<()> {
-        let ob = &mut ctx.accounts.ob;
-        for iv in ivs {
-            ob.check_index(iv.index)?;
-            ob.bitmap.bm_set(iv.index, iv.value);
-        }
-        Ok(())
-    }
-
-    pub fn reset(ctx: Context<Admin>) -> Result<()> {
-        let ob = &mut ctx.accounts.ob;
-        ob.bitmap.bm_reset();
-        Ok(())
-    }
-
-    pub fn set_owner(ctx: Context<SetOwner>) -> Result<()> {
-        let ob = &mut ctx.accounts.ob;
-        ob.owner = *ctx.accounts.new_owner.to_account_info().key;
-        Ok(())
-    }
-}
-
-#[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct IndexValue {
-    pub index: u32,
-    pub value: bool,
 }
 
 #[derive(Accounts)]
@@ -93,13 +39,13 @@ pub struct Admin<'info> {
 }
 
 #[derive(Accounts)]
-pub struct SetOwner<'info> {
-    #[account(mut, has_one = owner)]
+pub struct Close<'info> {
+    #[account(mut, close = sol_dest, has_one = owner)]
     pub ob: Account<'info, OwnedBitmap>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
-    #[account()]
-    pub new_owner: AccountInfo<'info>,
+    #[account(mut)]
+    sol_dest: AccountInfo<'info>,
 }
 
 #[account]
@@ -108,19 +54,78 @@ pub struct OwnedBitmap {
     bitmap: Vec<u8>,
 }
 
+#[error]
+pub enum ErrorCode {
+    #[msg("value in index already set")]
+    AlreadySet, //300 0x12c
+    #[msg("index overflow")]
+    IndexOverflow, //301 0x12d
+}
+
 impl OwnedBitmap {
-    pub fn check_index(&self, index: u32) -> Result<()> {
-        if self.bitmap.bm_capacity() <= index {
+    fn set(&mut self, index: u32) -> Result<()> {
+        if index >= (self.bitmap.len() * 8) as u32 {
             return Err(ErrorCode::IndexOverflow.into());
         }
+        let (vec_index, bit_index) = (index / 8, index % 8);
+        let is_set = self.bitmap[vec_index as usize] >> bit_index & 1 == 1;
+        if is_set {
+            return Err(ErrorCode::AlreadySet.into());
+        }
+        self.bitmap[vec_index as usize] |= 1 << bit_index;
         Ok(())
     }
 }
 
-#[error]
-pub enum ErrorCode {
-    #[msg("value not match")]
-    ValueNotMatch, //300 0x12c
-    #[msg("index overflow")]
-    IndexOverflow, //301 0x12d
+#[cfg(test)]
+mod tests {
+    use anchor_lang::prelude::Pubkey;
+
+    fn bm_count_true(bm: &[u8]) -> u32 {
+        let mut count = 0u32;
+        bm.iter().for_each(|f| {
+            for i in 0..8 {
+                if f >> i & 1 == 1 {
+                    count += 1;
+                }
+            }
+        });
+        count
+    }
+
+    fn bm_get(bm: &[u8], index: u32) -> bool {
+        let (vec_index, bit_index) = (index / 8, index % 8);
+        bm[vec_index as usize] >> bit_index & 1 == 1
+    }
+
+    #[test]
+    pub fn test_bitmap() {
+        let vec_len = 5;
+        let capacity = vec_len * 8;
+        let mut bm = crate::OwnedBitmap {
+            owner: Pubkey::new_unique(),
+            bitmap: vec![0u8; vec_len],
+        };
+
+        assert_eq!(
+            bm.set(capacity as u32).unwrap_err().to_string(),
+            crate::ErrorCode::IndexOverflow.to_string(),
+            "index overflow"
+        );
+
+        for i in 0..capacity {
+            let index = i as u32;
+            let mut ret = bm.set(index);
+            assert!(ret.is_ok());
+            assert!(bm_get(&bm.bitmap, index), "should be true");
+            assert_eq!(bm_count_true(&bm.bitmap), index + 1);
+
+            ret = bm.set(index);
+            assert!(ret.is_err());
+            assert_eq!(
+                ret.unwrap_err().to_string(),
+                crate::ErrorCode::AlreadySet.to_string()
+            );
+        }
+    }
 }

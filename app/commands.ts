@@ -33,6 +33,26 @@ export async function inspect(
   console.log("values", reader.valuesUtil(reader.capacity()));
 }
 
+export async function mustSwap(
+  program: Program,
+  ownedBitmapAddress: web3.PublicKey,
+  index: number,
+  value: boolean
+) {
+  await program.rpc.mustSwap(
+    {
+      index,
+      value,
+    },
+    {
+      accounts: {
+        ob: ownedBitmapAddress,
+        owner: program.provider.wallet.publicKey,
+      },
+    }
+  );
+}
+
 export async function reset(
   program: Program,
   ownedBitmapAddress: web3.PublicKey
