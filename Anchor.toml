@@ -1,12 +1,12 @@
 [programs.localnet]
-program_bitmap = "EGouPpM75ScRYBos5nYoafDDYVqMJptYQf5oqEoYZ7Xz"
+program_bitmap = "BMP23Y1u4FdGSwknSH7PVswT9ru7f9YsyjqR18pHGmBJ"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
 cluster = "localnet"
-wallet = "/home/sssroot/.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn anchor:test"

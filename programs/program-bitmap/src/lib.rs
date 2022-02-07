@@ -1,22 +1,18 @@
 use anchor_lang::prelude::*;
 
-#[cfg(not(feature = "production"))]
-declare_id!("EGouPpM75ScRYBos5nYoafDDYVqMJptYQf5oqEoYZ7Xz"); //devnet/localnet
-
-#[cfg(feature = "production")]
 declare_id!("BMP23Y1u4FdGSwknSH7PVswT9ru7f9YsyjqR18pHGmBJ"); //mainnet
 
 #[program]
 pub mod program_bitmap {
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>, len: u32) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, len: u64) -> Result<()> {
         let ob = &mut ctx.accounts.ob;
         ob.owner = *ctx.accounts.owner.to_account_info().key;
         ob.bitmap = vec![0u8; len as usize / 8];
         Ok(())
     }
 
-    pub fn set(ctx: Context<Admin>, index: u32) -> Result<()> {
+    pub fn set(ctx: Context<Admin>, index: u64) -> Result<()> {
         let ob = &mut ctx.accounts.ob;
         ob.set(index)
     }
@@ -30,16 +26,14 @@ pub mod program_bitmap {
 pub struct Initialize<'info> {
     #[account(zero)]
     pub ob: Account<'info, OwnedBitmap>,
-    #[account(signer)]
-    pub owner: AccountInfo<'info>,
+    pub owner: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct Admin<'info> {
     #[account(mut, has_one = owner)]
     pub ob: Account<'info, OwnedBitmap>,
-    #[account(signer)]
-    pub owner: AccountInfo<'info>,
+    pub owner: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -67,17 +61,25 @@ pub enum ErrorCode {
 }
 
 impl OwnedBitmap {
-    fn set(&mut self, index: u32) -> Result<()> {
-        if index >= (self.bitmap.len() * 8) as u32 {
+    fn set(&mut self, index: u64) -> Result<()> {
+        if index >= self.capacity() {
             return Err(ErrorCode::IndexOverflow.into());
         }
         let (vec_index, bit_index) = (index / 8, index % 8);
-        let is_set = self.bitmap[vec_index as usize] >> bit_index & 1 == 1;
-        if is_set {
+        if self.is_set(index) {
             return Err(ErrorCode::AlreadySet.into());
         }
         self.bitmap[vec_index as usize] |= 1 << bit_index;
         Ok(())
+    }
+
+    pub fn capacity(&self) -> u64 {
+        (self.bitmap.len() as u64).checked_mul(8).unwrap()
+    }
+
+    pub fn is_set(&self, index: u64) -> bool {
+        let (vec_index, bit_index) = (index / 8, index % 8);
+        self.bitmap[vec_index as usize] >> bit_index & 1 == 1
     }
 }
 
@@ -85,8 +87,8 @@ impl OwnedBitmap {
 mod tests {
     use anchor_lang::prelude::Pubkey;
 
-    fn bm_count_true(bm: &[u8]) -> u32 {
-        let mut count = 0u32;
+    fn bm_count_true(bm: &[u8]) -> u64 {
+        let mut count = 0u64;
         bm.iter().for_each(|f| {
             for i in 0..8 {
                 if f >> i & 1 == 1 {
@@ -97,7 +99,7 @@ mod tests {
         count
     }
 
-    fn bm_get(bm: &[u8], index: u32) -> bool {
+    fn bm_get(bm: &[u8], index: u64) -> bool {
         let (vec_index, bit_index) = (index / 8, index % 8);
         bm[vec_index as usize] >> bit_index & 1 == 1
     }
@@ -112,13 +114,13 @@ mod tests {
         };
 
         assert_eq!(
-            bm.set(capacity as u32).unwrap_err().to_string(),
+            bm.set(capacity as u64).unwrap_err().to_string(),
             crate::ErrorCode::IndexOverflow.to_string(),
             "index overflow"
         );
 
         for i in 0..capacity {
-            let index = i as u32;
+            let index = i as u64;
             let mut ret = bm.set(index);
             assert!(ret.is_ok());
             assert!(bm_get(&bm.bitmap, index), "should be true");

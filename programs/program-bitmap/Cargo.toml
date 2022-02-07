@@ -19,4 +19,4 @@ default = []
 production = []
 
 [dependencies]
-anchor-lang = "0.16.2"
+anchor-lang = "0.20.1"
